@@ -187,3 +187,197 @@ caller():
 对比:
 
 ![左传引用,右传值](/images/传值与传引用-结构体较大.jpg)
+
+
+通常建议优化的地方有参数传递和返回值.现在全用上,作为对比:
+
+```C++
+class A
+{
+    char chars[1024*8+1]={'\0'};// x86-64 gcc 9.1环境，此边界值为触发 memset 和 memcpy 的临界值，可能与 page 有关
+};
+
+A callee(A a)
+{
+    return a;
+}
+
+void caller()
+{
+    A _a;
+    callee(_a);
+}
+```
+
+参数和返回值传值:
+
+```asm
+callee(A):
+  push rbp
+  mov rbp, rsp
+  sub rsp, 16
+  mov QWORD PTR [rbp-8], rdi
+  mov rax, QWORD PTR [rbp-8]
+  mov rcx, rax
+  lea rax, [rbp+16]
+  mov edx, 8193
+  mov rsi, rax
+  mov rdi, rcx
+  call memcpy
+  mov rax, QWORD PTR [rbp-8]
+  leave
+  ret
+caller():
+  push rbp
+  mov rbp, rsp
+  push rbx
+  sub rsp, 16424
+  mov QWORD PTR [rbp-16432], 0
+  mov QWORD PTR [rbp-16424], 0
+  lea rdx, [rbp-16416]
+  mov eax, 0
+  mov ecx, 1022
+  mov rdi, rdx
+  rep stosq
+  mov rdx, rdi
+  mov BYTE PTR [rdx], al
+  add rdx, 1
+  lea rbx, [rbp-8224]
+  sub rsp, 8
+  sub rsp, 8200
+  mov rax, rsp
+  mov rcx, rax
+  lea rax, [rbp-16432]
+  mov edx, 8193
+  mov rsi, rax
+  mov rdi, rcx
+  call memcpy
+  mov rdi, rbx
+  call callee(A)
+  add rsp, 8208
+  nop
+  mov rbx, QWORD PTR [rbp-8]
+  leave
+  ret
+```
+
+参数传引用,返回值传值:
+
+```asm
+callee(A&):
+  push rbp
+  mov rbp, rsp
+  sub rsp, 16
+  mov QWORD PTR [rbp-8], rdi
+  mov QWORD PTR [rbp-16], rsi
+  mov rdx, QWORD PTR [rbp-8]
+  mov rax, QWORD PTR [rbp-16]
+  mov rcx, rdx
+  mov edx, 8193
+  mov rsi, rax
+  mov rdi, rcx
+  call memcpy
+  mov rax, QWORD PTR [rbp-8]
+  leave
+  ret
+caller():
+  push rbp
+  mov rbp, rsp
+  sub rsp, 16416
+  mov QWORD PTR [rbp-16416], 0
+  mov QWORD PTR [rbp-16408], 0
+  lea rdx, [rbp-16400]
+  mov eax, 0
+  mov ecx, 1022
+  mov rdi, rdx
+  rep stosq
+  mov rdx, rdi
+  mov BYTE PTR [rdx], al
+  add rdx, 1
+  lea rax, [rbp-8208]
+  lea rdx, [rbp-16416]
+  mov rsi, rdx
+  mov rdi, rax
+  call callee(A&)
+  nop
+  leave
+  ret
+```
+
+参数传值,返回值传引用(实际不可这样写,因为返回了局部变量的引用)
+
+```asm
+callee(A):
+  push rbp
+  mov rbp, rsp
+  mov eax, 0
+  pop rbp
+  ret
+caller():
+  push rbp
+  mov rbp, rsp
+  sub rsp, 8208
+  mov QWORD PTR [rbp-8208], 0
+  mov QWORD PTR [rbp-8200], 0
+  lea rdx, [rbp-8192]
+  mov eax, 0
+  mov ecx, 1022
+  mov rdi, rdx
+  rep stosq
+  mov rdx, rdi
+  mov BYTE PTR [rdx], al
+  add rdx, 1
+  sub rsp, 8200
+  mov rax, rsp
+  mov rcx, rax
+  lea rax, [rbp-8208]
+  mov edx, 8193
+  sub rsp, 8
+  mov rsi, rax
+  mov rdi, rcx
+  call memcpy
+  add rsp, 8
+  call callee(A)
+  add rsp, 8200
+  nop
+  leave
+  ret
+```
+
+参数和返回值均传引用:
+
+```asm
+callee(A&):
+  push rbp
+  mov rbp, rsp
+  mov QWORD PTR [rbp-8], rdi
+  mov rax, QWORD PTR [rbp-8]
+  pop rbp
+  ret
+caller():
+  push rbp
+  mov rbp, rsp
+  sub rsp, 8208
+  mov QWORD PTR [rbp-8208], 0
+  mov QWORD PTR [rbp-8200], 0
+  lea rdx, [rbp-8192]
+  mov eax, 0
+  mov ecx, 1022
+  mov rdi, rdx
+  rep stosq
+  mov rdx, rdi
+  mov BYTE PTR [rdx], al
+  add rdx, 1
+  lea rax, [rbp-8208]
+  mov rdi, rax
+  call callee(A&)
+  nop
+  leave
+  ret
+```
+
+对比:
+
+![参数和返回值传递方式对比](/images/传值与传引用-参数和返回值对比.jpg)
+
+可见,传值竟然比传引用多出一堆指令+两个 memcpy!
