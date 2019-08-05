@@ -9,11 +9,12 @@ bool Stack<T>::push(const T &t)
     buffer[++offset] = t;
 }
 template<class T>
-T &Stack<T>::pop()
+bool Stack<T>::pop(T &t)
 {
     if (offset == -1) {
-
+        return false;
     }
-    return buffer[offset--];
+    t = buffer[offset--];
+    return true;
 }
 

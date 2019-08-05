@@ -1,16 +1,15 @@
-class C
+class A
 {
-public:
-    int buf[10000] = {0};
+    int v = 1;
 };
 
-
-int test2(C a)
+void callee(A& a)
 {
 
 }
 
-int test1(C a)
+void caller()
 {
-    test2(a);
+    A _a;
+    callee(_a);
 }

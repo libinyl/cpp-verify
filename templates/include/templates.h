@@ -24,10 +24,8 @@ private:
     int offset = -1;
 public:
     bool push(const T &t);
-    T &pop();
+    bool pop(T &t);
 };
-
-
 
 
 #endif
