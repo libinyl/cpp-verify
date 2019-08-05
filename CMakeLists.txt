@@ -4,3 +4,5 @@ project(cpp_verify)
 set(CMAKE_CXX_STANDARD 14)
 
 add_subdirectory(access-specifier)
+add_subdirectory(templates)
+add_subdirectory(about-reference)

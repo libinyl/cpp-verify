@@ -1,0 +1,1 @@
+add_executable(template1 test.cpp include/templates.h templates.cpp)

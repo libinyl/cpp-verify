@@ -67,7 +67,6 @@ public:
 int main()
 {
     Base bs;
-
     Pub pb;
     Priv pr;
 
