@@ -1,0 +1,1 @@
+add_executable(bad-eg memory-leak.cpp)
